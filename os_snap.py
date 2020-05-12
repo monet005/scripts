@@ -105,14 +105,15 @@ def mounts():
     mount_dict = {}
     exclude = ['binfmt_misc', 'configfs', 'debugfs', 'devpts', 'devtmpfs', \
                'hugetlbfs', 'mqueue', 'proc', 'pstore', 'securityfs', 'selinuxfs', \
-               'sunrpc', 'sysfs', 'systemd-1', 'vagrant', 'cgroup', 'tmpfs', 'rootfs', 'none' ]
+               'sunrpc', 'sysfs', 'systemd-1', 'vagrant', 'cgroup', 'tmpfs', 'rootfs', \
+               'none', 'nfsd', 'fusectl' ]
 
     for line in out:
         if line:
         #['/dev/mapper/centos-root', '/', 'xfs', 'rw,seclabel,relatime,attr2,inode64,noquota', '0', '0']
             l = line.split()
             if l[0] not in exclude:
-                mount_dict.update({ l[1]: { 'size': df(l[0]), 'device': l[0], 'fstype': l[2], 'mount_opts': l[3] }})
+                mount_dict.update({ l[1]: { 'size': df(l[1]), 'device': l[0], 'fstype': l[2], 'mount_opts': l[3] }})
     
     return { 'mounts': mount_dict }
 
@@ -120,27 +121,28 @@ def mounts():
 # Compare func here
 def compare(keyname, a, b):
     delta = {}
-    print("[{0} checks]".format(keyname))
+    print("[{0} check]".format(keyname))
 
     try:
         common_keys = filter(b.has_key, a.keys())
-        diff_keys = a.viewkeys() - b.viewkeys()
-        diff_list = list(diff_keys)
-        count = len(diff_list)
         for key in common_keys:
             if a[key] != b[key]:
                 print("(a) {0}: {1}\n(b) {2}: {3}\n".format(key, a[key], key, b[key]))
                 delta.update({key: a[key]})
 
+        diff_keys = a.viewkeys() - b.viewkeys()
+        diff_list = list(diff_keys)
+        count = len(diff_list)
+
         if len(diff_list) != 0:
-            print("{0} items not on (b): {1}\n".format(count, diff_list))
+            print("{0} item(s) not on (b): {1}\n".format(count, diff_list))
             for diff_key in diff_list:
                 delta.update({diff_key: a[diff_key]})
 
     except AttributeError:
         diff_a2b = list(set(a) - set(b))
         count = len(diff_a2b)
-        print("{0} items not on (b): {1}\n".format(count, diff_a2b))
+        print("{0} item(s) not on (b): {1}\n".format(count, diff_a2b))
         delta.update({keyname: diff_a2b})
 
     return delta

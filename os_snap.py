@@ -110,7 +110,6 @@ def mounts():
 
     for line in out:
         if line:
-        #['/dev/mapper/centos-root', '/', 'xfs', 'rw,seclabel,relatime,attr2,inode64,noquota', '0', '0']
             l = line.split()
             if l[0] not in exclude:
                 mount_dict.update({ l[1]: { 'size': df(l[1]), 'device': l[0], 'fstype': l[2], 'mount_opts': l[3] }})
@@ -185,8 +184,6 @@ def main():
     if args.file:
         f = args.file
         try:
-            #with open(f[0], 'r') as a, open(f[1], 'r') as b:
-            
             with open(f[0], 'r') as a:
                 a_data = json.load(a)
             

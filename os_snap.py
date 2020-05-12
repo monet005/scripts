@@ -117,6 +117,25 @@ def mounts():
     
     return { 'mounts': mount_dict }
 
+def network():
+    proc = subprocess.Popen(["ip","-4","-o","addr"], stdout=subprocess.PIPE)
+    data = proc.communicate()
+    out = data[0].split('\n')
+
+    net_dict = {}
+    for line in out:
+        if line:
+            l = line.split()
+            net_dict.update({l[1]: {'ip_addr': l[3]}})
+            ether = '/sys/class/net/' + l[1] + '/address'
+            state = '/sys/class/net/' + l[1] + '/operstate'
+            with open(ether, 'r') as f:
+                net_dict[l[1]]['mac_address'] = f.read().rstrip()
+
+            with open(state, 'r') as f:
+                net_dict[l[1]]['status'] = f.read().rstrip()
+
+    return {'network': net_dict}
 
 # Compare func here
 def compare(keyname, a, b):
@@ -150,8 +169,8 @@ def compare(keyname, a, b):
 # main
 def main():
     all = {}
-    module_functions = [groups(), users(), sysctl(), rpm(), mounts()]
-    modules = ['groups', 'users', 'sysctl', 'rpm', 'mounts']
+    module_functions = [groups(), users(), sysctl(), rpm(), mounts(), network()]
+    modules = ['groups', 'users', 'sysctl', 'rpm', 'mounts', 'network']
     hostname = os.uname()[1]
 
     if args.snap:

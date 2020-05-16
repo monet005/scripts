@@ -20,6 +20,7 @@ set -A commands "uname -a" \
                 "cat /etc/security/limits.conf" \
                 "netstat -rn" \
                 "ip addr" \
+                "rpm -qa" \
 
 createBackup () {
     if [[ ! -d $BACKUPDIR ]]; then

@@ -15,21 +15,23 @@ parser_group.add_argument('-s', '--snap', action='store_true', help='take custom
 parser_group.add_argument('-c', '--compare', action='store', nargs=2, dest='file', help='specify file full path')
 args = parser.parse_args()
 
+def run(*args):
+    cmd = list(args)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc_data = proc.communicate()
+    value = proc_data[0].split('\n')
+
+    return value
+
 # modules here
 def sysctl():
-    proc = subprocess.Popen(["sysctl", "-a"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
-
+    out = run("sysctl", "-a")
     sys_list = [ tuple(line.split(' = ')) for line in out if line ]
     sys_dict = dict(sys_list)
     return { 'sysctl': sys_dict }
 
 def groups():
-    proc = subprocess.Popen(["cat", "/etc/group"], stdout=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
-
+    out = run("cat", "/etc/group")
     groups_dict = {}
     for line in out:
         if line:
@@ -40,10 +42,7 @@ def groups():
     return { 'groups': groups_dict }
 
 def sgroups(user):
-    proc = subprocess.Popen(["groups", user], stdout=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
-
+    out = run("groups", user)
     sgroups_raw = out[0].split(' : ')[1].split()
     # comma separated list of secondary groups, primary group excluded
     sgroups = ','.join(sgroups_raw[1:])
@@ -51,10 +50,7 @@ def sgroups(user):
     return sgroups
 
 def users():
-    proc = subprocess.Popen(["cat", "/etc/passwd"], stdout=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
-
+    out = run("cat", "/etc/passwd")
     # convert gid numerical value to groupname
     groups_data = groups()
     groups_values = groups_data.values()
@@ -83,25 +79,16 @@ def users():
     return { 'users': mapped }
 
 def rpm():
-    proc = subprocess.Popen(["rpm", "-qa", "--queryformat", "%{NAME}\n"], stdout=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
-
+    out = run("rpm", "-qa", "--queryformat", "%{NAME}\n")
     return { 'rpm': out[:-1] }
 
 def df(mountpt):
-    proc = subprocess.Popen(["df", "-hP", mountpt], stdout=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
-
+    out = run("df", "-hP", mountpt)
     line = out[1].split()
     return line[1]
 
 def mounts():
-    proc = subprocess.Popen(["cat", "/proc/mounts"], stdout=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
-
+    out = run("cat", "/proc/mounts")
     mount_dict = {}
     exclude = ['binfmt_misc', 'configfs', 'debugfs', 'devpts', 'devtmpfs', \
                'hugetlbfs', 'mqueue', 'proc', 'pstore', 'securityfs', 'selinuxfs', \
@@ -117,9 +104,7 @@ def mounts():
     return { 'mounts': mount_dict }
 
 def network():
-    proc = subprocess.Popen(["ip","-4","-o","addr"], stdout=subprocess.PIPE)
-    data = proc.communicate()
-    out = data[0].split('\n')
+    out = run("ip","-4","-o","addr")
 
     net_dict = {}
     for line in out:
@@ -136,6 +121,17 @@ def network():
 
     return {'network': net_dict}
 
+def disks():
+    out = run("lsblk", "-l", "-n", "-o", "name,size,type")
+    disks_dict = {}
+    for line in out:
+        if line:
+            l = line.split()
+            if l[2] == 'disk':
+                disks_dict.update({l[0]: l[1]})
+    
+    return {'disks': disks_dict}
+
 # Compare func here
 def compare(keyname, a, b):
     delta = {}
@@ -147,7 +143,7 @@ def compare(keyname, a, b):
             if a[key] != b[key]:
                 print("(a) {0}: {1}\n(b) {2}: {3}\n".format(key, a[key], key, b[key]))
                 delta.update({key: a[key]})
-
+  
         diff_keys = a.viewkeys() - b.viewkeys()
         diff_list = list(diff_keys)
         count = len(diff_list)
@@ -168,8 +164,8 @@ def compare(keyname, a, b):
 # main
 def main():
     all = {}
-    module_functions = [groups(), users(), sysctl(), rpm(), mounts(), network()]
-    modules = ['groups', 'users', 'sysctl', 'rpm', 'mounts', 'network']
+    module_functions = [groups(), users(), sysctl(), rpm(), mounts(), network(), disks()]
+    modules = ['groups', 'users', 'sysctl', 'rpm', 'mounts', 'network', 'disks']
     hostname = os.uname()[1]
 
     if args.snap:
@@ -193,7 +189,7 @@ def main():
         except IOError as e:
             exit(e)
 
-    # compare & create json of deltas based on a values
+    # compare & create json of deltas based on A values
         print("compare a to b")
         print("-" * 60)
         print("a: {0}\t b: {1}".format(f[0], f[1]))
@@ -211,9 +207,8 @@ def main():
         with open('delta.json', 'w') as f:
             x = json.dumps(all_delta, indent=4)
             f.write(x)
-            print("delta output: {0}".format(f.name))
+            print("\ndelta output: {0}".format(f.name))
             
-
 if __name__ == "__main__": 
    main()
 

@@ -132,6 +132,28 @@ def disks():
     
     return {'disks': disks_dict}
 
+def sysinfo():
+    sysinfo_dict = {}
+    
+    mem_out = run("cat", "/proc/meminfo")
+    mem_params = ['MemTotal', 'SwapTotal']
+    for line in mem_out:
+        mem_data = [ line for mem_param in mem_params if line.startswith(mem_param) ]
+        if mem_data:
+            sysinfo_dict.update({mem_data[0].split(':')[0].lstrip(): mem_data[0].split(':')[1].lstrip()})
+
+    cpu_out = run("lscpu")
+    cpu_params = ['CPU(s)', 'Thread(s) per core', 'Core(s) per socket', 'Socket(s)', 'Model name']
+    for line in cpu_out:
+        cpu_data = [ line for cpu_param in cpu_params if line.startswith(cpu_param) ]
+        if cpu_data:
+            sysinfo_dict.update({cpu_data[0].split(':')[0].lstrip(): cpu_data[0].split(':')[1].lstrip()})
+
+    hostname = run("hostname")
+    sysinfo_dict.update({'hostname': hostname[0]})
+    
+    return {'sysinfo': sysinfo_dict}
+
 # Compare func here
 def compare(keyname, a, b):
     delta = {}
@@ -164,8 +186,8 @@ def compare(keyname, a, b):
 # main
 def main():
     all = {}
-    module_functions = [groups(), users(), sysctl(), rpm(), mounts(), network(), disks()]
-    modules = ['groups', 'users', 'sysctl', 'rpm', 'mounts', 'network', 'disks']
+    module_functions = [groups(), users(), sysctl(), rpm(), mounts(), network(), disks(), sysinfo()]
+    modules = ['groups', 'users', 'sysctl', 'rpm', 'mounts', 'network', 'disks', 'sysinfo']
     hostname = os.uname()[1]
 
     if args.snap:

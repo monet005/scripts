@@ -3,10 +3,12 @@
 # Pre and Post server rebuild script
 #
 
-BACKUPFS=/var/tmp
+BACKUPFS=/vagrant
 BACKUPDIR=$BACKUPFS/${HOSTNAME}_backup
-POSTDIR=/tmp/${HOSTNAME}_post_rebuild
 TARFILE=${HOSTNAME}_backup.tar.gz
+POSTDIR=$BACKUPFS/${HOSTNAME}_post_rebuild
+RESTOREDIR=$POSTDIR/restore_tmp
+COMMIT=$2
 
 # List of files to be backed up before rebuild
 set -A files /etc /var/spool
@@ -21,6 +23,13 @@ set -A commands "uname -a" \
                 "netstat -rn" \
                 "ip addr" \
                 "rpm -qa" \
+
+set -A system_accounts root bin daemon adm lp sync shutdown halt mail operator games ftp nobody \
+       systemd-network dbus polkitd sshd postfix chrony vagrant rpc rpcuser nfsnobody vboxadd
+
+set -A system_groups root bin daemon sys adm tty disk lp mem kmem wheel cdrom mail man dialout floppy games \
+       tape video ftp lock audio nobody users utmp utempter input systemd-journal systemd-network dbus polkitd \
+       ssh_keys sshd postdrop postfix chrony vagrant rpc rpcuser nfsnobody printadmin vboxsf raemone ruth biboy
 
 createBackup () {
     if [[ ! -d $BACKUPDIR ]]; then
@@ -49,6 +58,49 @@ captureOutput () {
     done
 }
 
+extractBackup () {
+    if [[ -f $BACKUPDIR/$TARFILE ]]; then
+        tar -xzf $BACKUPDIR/$TARFILE -C $TARGET && echo "Backup files extracted to $TARGET successfully"
+    fi  
+}
+
+restoreConfigs () {
+    if [[ ! -d $RESTOREDIR ]]; then
+        mkdir $RESTOREDIR
+    fi
+
+    rm -f $RESTOREDIR/*
+
+    # sysctl
+    grep -v '^#' $TARGET/etc/security/limits.conf | sed '/^$/d' >> $RESTOREDIR/limits \
+                && echo "check limit values at $RESTOREDIR/limits_tmp"
+    
+    # users
+    for user in $(cut -d: -f1 $TARGET/etc/passwd); do
+        echo "${system_accounts[@]}" | grep -vq $user
+        if [[ $? -eq 0 ]]; then
+            echo $(grep $user $TARGET/etc/passwd) >> $RESTOREDIR/passwd
+        fi
+    done
+
+    # groups
+    for group in $(cut -d: -f1 $TARGET/etc/group); do
+        echo "${system_groups[@]}" | grep -vq $group
+        if [[ $? -eq 0 ]]; then
+            echo $(grep $group $TARGET/etc/group) >> $RESTOREDIR/group
+        fi
+    done
+ 
+    
+    if [[ $COMMIT == "commit" ]]; then
+        echo "Extra customizations applied"
+        cat $RESTOREDIR/limits >> /etc/security/limits.conf
+        cat $RESTOREDIR/passwd >> /etc/passwd
+        cat $RESTOREDIR/group >> /etc/group
+    fi
+ 
+}
+
 case $1 in 
     pre) 
         TARGET=$BACKUPDIR
@@ -58,8 +110,10 @@ case $1 in
     post)
         TARGET=$POSTDIR
         captureOutput
+        #extractBackup
+        restoreConfigs
         ;;
-    *) echo "Usage: `basename $0` <pre|post>"
+    *) echo "Usage: `basename $0` <pre|post> [commit]"
         ;;    
 esac
 

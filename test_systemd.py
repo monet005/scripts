@@ -11,7 +11,10 @@ logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
 logger = logging.getLogger(__name__)
 
 consul_url = 'http://pi-1:8500'
-systemd_dirname = 'sabre_systemd'
+systemd_basedir = 'sabre_systemd'
+systemd_filesdir = os.path.join(systemd_basedir, 'sabre_systemd', 'files')
+systemd_enabled_inv = os.path.join(systemd_basedir, 'systemd_enabled_hosts')
+systemd_disabled_inv = os.path.join(systemd_basedir, 'systemd_disabled_hosts')
 
 
 class ConsulHelper():
@@ -121,38 +124,41 @@ def main():
 
     # Systemd and ansible inventory file creation tasks
     try:
-        os.mkdir(systemd_dirname)
+        os.makedirs(systemd_filesdir)
     except Exception as e:
         logger.warning('Unable to create {} directory: {}'
-                       .format(systemd_dirname, e))
+                       .format(systemd_filesdir, e))
 
     try:
-        os.remove('systemd_enabled_hosts')
-        logger.info('systemd_enabled_hosts cleared')
+        if os.path.exists(systemd_enabled_inv):
+            os.remove(systemd_enabled_inv)
+            logger.info('systemd_enabled_hosts cleared')
     except Exception as e:
-        logger.error('Unable to delete systemd_enabled_hosts: {}'
-                     .format(e))
+        logger.warning('Unable to delete systemd_enabled_hosts: {}'
+                       .format(e))
 
     for svc_name in all_services:
         svc_data = ch.get_systemd_config(svc_name)
         if svc_data:
-            dest = '{}/{}.service'.format(systemd_dirname, svc_name)
+            dest = os.path.join(systemd_filesdir, '{}.service'
+                                .format(svc_name))
             with open(dest, 'w') as f:
                 f.write(svc_data)
                 logger.info('{} systemd template created'.format(dest))
 
             svc_status_map = ch.get_systemd_status_per_node(svc_name)
 
-            with open('systemd_enabled_hosts', 'a') as f:
+            with open(systemd_enabled_inv, 'a') as f:
                 if svc_status_map.get(svc_name):
                     f.write('\n')
                     f.write('[{}]\n'.format(svc_name))
+                    logger.info('{} ansible inventory file created'
+                                .format(systemd_enabled_inv))
 
                     values = svc_status_map.get(svc_name)
                     for v in values:
                         if v.get('systemd_enabled') == 'true':
                             f.write('{}\n'.format(v.get('node')))
-                            
 
 
 if __name__ == "__main__":

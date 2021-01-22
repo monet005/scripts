@@ -4,22 +4,12 @@ import requests
 import logging
 import sys
 import os
-
-
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-consul_url = 'http://pi-1:8500'
-systemd_basedir = 'sabre_systemd'
-systemd_filesdir = os.path.join(systemd_basedir, 'sabre_systemd', 'files')
-systemd_enabled_inv = os.path.join(systemd_basedir, 'systemd_enabled_hosts')
-systemd_disabled_inv = os.path.join(systemd_basedir, 'systemd_disabled_hosts')
+import git
 
 
 class ConsulHelper():
     """
-    A collection of consul helper functions
+    A collection of consul api methods
     """
 
     def __init__(self, consul_url):
@@ -118,20 +108,57 @@ class ConsulHelper():
         return all
 
 
+class Git():
+    """
+    To do git operations
+    """
+    def __init__(self, repodir, repo_src):
+        self.repodir = repodir
+        self.repo_src = repo_src
+
+    def check_repodir(self):
+        check = os.path.isdir(self.repodir)
+        if check:
+            logger.info('{} git repodir already exists'.format(self.repodir))
+        else:
+            os.mkdir(self.repodir)
+            logger.info('{} repodir created'.format(self.repodir))
+
+    def update_gitrepo(self):
+        try:
+            repo = git.Repo(repodir)
+            if repo.is_dirty(untracked_files=True):
+                logger.info('Git repo changes detected')
+                repo.git.add('--all')
+                repo.git.commit(m='added files')
+                repo.remotes.origin.push()
+                logger.info('Pushed changes to {}'.format(repo_src))
+            else:
+                logger.info('No git repo changes detected on {}'
+                            .format(repodir))
+        except git.exc.InvalidGitRepositoryError:
+            logger.info('Cloning {} repo'.format(repo.src))
+            git.Repo.clone_from(repo_src, repodir)
+
+
 def main():
     ch = ConsulHelper(consul_url)
     all_services = ch.get_all_services()
 
     # Systemd and ansible inventory file creation tasks
     try:
-        os.makedirs(systemd_filesdir)
+        if os.path.isdir(filesdir):
+            logger.info('{} dir already exists'.format(filesdir))
+        else:
+            os.makedirs(filesdir)
+            logger.info('{} dir created'.format(filesdir))
     except Exception as e:
         logger.warning('Unable to create {} directory: {}'
-                       .format(systemd_filesdir, e))
+                       .format(filesdir, e))
 
     try:
-        if os.path.exists(systemd_enabled_inv):
-            os.remove(systemd_enabled_inv)
+        if os.path.exists(enabled_inv):
+            os.remove(enabled_inv)
             logger.info('systemd_enabled_hosts cleared')
     except Exception as e:
         logger.warning('Unable to delete systemd_enabled_hosts: {}'
@@ -140,7 +167,7 @@ def main():
     for svc_name in all_services:
         svc_data = ch.get_systemd_config(svc_name)
         if svc_data:
-            dest = os.path.join(systemd_filesdir, '{}.service'
+            dest = os.path.join(filesdir, '{}.service'
                                 .format(svc_name))
             with open(dest, 'w') as f:
                 f.write(svc_data)
@@ -148,18 +175,34 @@ def main():
 
             svc_status_map = ch.get_systemd_status_per_node(svc_name)
 
-            with open(systemd_enabled_inv, 'a') as f:
+            with open(enabled_inv, 'a') as f:
                 if svc_status_map.get(svc_name):
                     f.write('\n')
                     f.write('[{}]\n'.format(svc_name))
                     logger.info('{} ansible inventory file created'
-                                .format(systemd_enabled_inv))
+                                .format(enabled_inv))
 
                     values = svc_status_map.get(svc_name)
                     for v in values:
                         if v.get('systemd_enabled') == 'true':
                             f.write('{}\n'.format(v.get('node')))
 
+    # Bitbucket repo tasks
+    gt = Git(repodir, repo_src)
+    gt.check_repodir()
+    gt.update_gitrepo()
+
 
 if __name__ == "__main__":
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
+                        level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    consul_url = 'http://pi-1:8500'
+    basedir = 'sabre_systemd'
+    filesdir = os.path.join(basedir, 'sabre_systemd', 'files')
+    enabled_inv = os.path.join(basedir, 'systemd_enabled_hosts')
+    disabled_inv = os.path.join(basedir, 'systemd_disabled_hosts')
+    repodir = 'sabre_systemd'
+    repo_src = 'git@github.com:monet005/sabre_systemd.git'
+
     main()

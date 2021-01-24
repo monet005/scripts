@@ -216,7 +216,6 @@ def main():
             systemd_check = SystemdCheck(svc_data, svc_name)
             check_root = systemd_check.check_root_user()
             check_params = systemd_check.check_params()
-
             dest = os.path.join(filesdir, '{}.service'
                                 .format(svc_name))
 
@@ -224,25 +223,25 @@ def main():
                 with open(dest, 'w') as f:
                     f.write(svc_data)
                     logger.info('{} systemd template created'.format(dest))
+
+                svc_status_map = ch.get_systemd_status_per_node(svc_name)
+                with open(ansible_inv, 'a') as f:
+                    if svc_status_map.get(svc_name):
+                        f.write('\n')
+                        f.write('[{}]\n'.format(svc_name))
+                        logger.info('{} ansible inventory file created'
+                                    .format(ansible_inv))
+
+                        values = svc_status_map.get(svc_name)
+                        for v in values:
+                            status = v.get('systemd')
+                            node = v.get('node')
+                            f.write('{}\t systemd={}\n'
+                                    .format(node, status))
             else:
-                logger.error('{} config check failed '
-                             'not creating the systemd template'
+                logger.error('{} config check failed, '
+                             'excluding from template and inventory creation'
                              .format(svc_name))
-
-            svc_status_map = ch.get_systemd_status_per_node(svc_name)
-            with open(ansible_inv, 'a') as f:
-                if svc_status_map.get(svc_name):
-                    f.write('\n')
-                    f.write('[{}]\n'.format(svc_name))
-                    logger.info('{} ansible inventory file created'
-                                .format(ansible_inv))
-
-                    values = svc_status_map.get(svc_name)
-                    for v in values:
-                        status = v.get('systemd')
-                        node = v.get('node')
-                        f.write('{}\t systemd={}\n'
-                                .format(node, status))
 
     # Bitbucket repo tasks
     gt = Git(repodir, repo_src)

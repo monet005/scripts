@@ -23,7 +23,7 @@ class ConsulHelper():
                              .format(self.kv_url, service_name))
             if r.status_code == 200:
                 data = r.text
-                logger.info('{} systemd config available'
+                logger.info('{} systemd config available in consul'
                             .format(service_name))
                 return data
             else:
@@ -130,7 +130,7 @@ class Git():
             if repo.is_dirty(untracked_files=True):
                 logger.info('Git repo changes detected')
                 repo.git.add('--all')
-                repo.git.commit(m='added files')
+                repo.git.commit(m='made config updates')
                 repo.remotes.origin.push()
                 logger.info('Pushed changes to {}'.format(repo_src))
             else:
@@ -239,9 +239,11 @@ def main():
                             f.write('{}\t systemd={}\n'
                                     .format(node, status))
             else:
-                logger.error('{} config check failed, '
-                             'excluding from template and inventory creation'
+                logger.error('{} config check failed, removing the '
+                             'previous template and inventory entries'
                              .format(svc_name))
+                if os.path.exists(dest):
+                    os.remove(dest)
 
     # Bitbucket repo tasks
     gt = Git(repodir, repo_src)

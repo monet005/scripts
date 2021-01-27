@@ -60,11 +60,11 @@ def check_systemd_config(svc_name):
                     valid += 1
 
                 if valid == 0:
-                    return {'systemd_check': 'passed'}
+                    return 'passed'
                 elif valid == 1:
-                    return {'systemd_check': 'failed'}
+                    return 'false'
         else:
-            return {'systemd_check': 'null'}
+            return 'null'
 
     except Exception as e:
         print('Unable to connect to consul: {}'.format(e))
@@ -94,15 +94,12 @@ def main():
             except KeyError:
                 pass
 
+        check = check_systemd_config(service)
         grp_items.update({service: {
                         'hosts': nodes,
                         'vars': {'systemd_filename':
-                                 '{}.service'.format(service)}}})
-
-        check = check_systemd_config(service)
-        grp_var = grp_items[service]['vars']
-        grp_var.update(check)
-        grp_items.update(grp_var)
+                                 '{}.service'.format(service),
+                                 'systemd_check': '{}'.format(check)}}})
 
     if args.list:
         inventory.update(grp_items)

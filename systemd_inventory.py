@@ -93,7 +93,7 @@ class ConsulHelper():
                 logger.error('{} service does not exist in consul'
                              .format(service_name))
         except Exception as e:
-            logger.error('Error connecting to {}: {}'.format(consul_url))
+            logger.error('Error connecting to {}: {}'.format(consul_url, e))
 
         return status_map
 
@@ -106,7 +106,7 @@ class ConsulHelper():
             else:
                 logger.warning('Error in getting data from consul')
         except Exception as e:
-            logger.error('Error connecting to {}: {}'.format(consul_url))
+            logger.error('Error connecting to {}: {}'.format(consul_url, e))
 
         return nodes
 

@@ -72,14 +72,19 @@ class ConsulHelper():
                 status_items = []
                 for item in items:
                     node = item.get('Node')
+                    inv_svc_name = service_name.replace(' ', '_')
+                    svc_key = 'systemd_{}'.format(inv_svc_name)
                     try:
                         status = item.get('ServiceMeta')['systemd']
-                        inv_svc_name = service_name.replace(' ', '_')
-                        svc_key = 'systemd_{}'.format(inv_svc_name)
                         if status:
+                            # Convert string to boolean for consistency
+                            if status.lower() == 'true':
+                                status_bool = True
+                            elif status.lower() == 'false':
+                                status_bool = False
                             logger.info('{} systemd defined on {}'
                                         .format(service_name, node))
-                            status_items.append({node: {svc_key: status}})
+                            status_items.append({node: {svc_key: status_bool}})
                         else:
                             logger.warning('{} systemd key is null on {}'
                                            .format(service_name, node))
@@ -88,6 +93,7 @@ class ConsulHelper():
                         logger.warning('{} service json file on {} '
                                        'does not have systemd key'
                                        .format(service_name, node))
+                        status_items.append({node: {svc_key: False}})
                 status_map.update({service_name: status_items})
             else:
                 logger.error('{} service does not exist in consul'

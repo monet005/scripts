@@ -145,7 +145,7 @@ class SystemdConfigCheck():
                            .format(self.svc_name))
             return False
         else:
-            logger.info('{} config check OK - non-root user defined'
+            logger.info('{} config check passed - non-root user defined'
                         .format(self.svc_name))
             return True
 

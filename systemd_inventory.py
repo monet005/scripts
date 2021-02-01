@@ -79,12 +79,12 @@ class ConsulHelper():
                         if status:
                             # Convert string to boolean for consistency
                             if status.lower() == 'true':
-                                status_bool = True
+                                status = True
                             elif status.lower() == 'false':
-                                status_bool = False
+                                status = False
                             logger.info('{} systemd defined on {}'
                                         .format(service_name, node))
-                            status_items.append({node: {svc_key: status_bool}})
+                            status_items.append({node: {svc_key: status}})
                         else:
                             logger.warning('{} systemd key is null on {}'
                                            .format(service_name, node))

@@ -1,0 +1,14 @@
+{
+    "watches":[
+        {
+            "type": "key",
+            "key": "systemd/jenkins",
+            "args": ["/opt/consul/systemd-handler.sh", "jenkins"]
+        },
+        {
+            "type": "key",
+            "key": "systemd/tds3",
+            "args": ["/opt/consul/systemd-handler.sh", "tds3"]
+        }
+    ]
+}

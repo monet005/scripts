@@ -1,0 +1,5 @@
+- hosts: localhost
+
+  tasks:
+    - debug: msg="pattern matched"
+      when: (assigned_to is search("sidr", ignorecase=True)) or (assigned_to is search("xva", ignorecase=True))

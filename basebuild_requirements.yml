@@ -1,9 +1,9 @@
 - src: git+https://github.com/monet005/customization.git
   scm: git
-  version: master
+  version: main
   name: customization
 
 - src: git+https://github.com/monet005/monitoring.git
   scm: git
-  version: master
+  version: main
   name: monitoring

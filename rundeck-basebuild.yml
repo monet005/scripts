@@ -1,0 +1,11 @@
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Run OS customization
+      include_role:
+        name: customization
+
+    - name: Run monitoring
+      include_role:
+        name: monitoring

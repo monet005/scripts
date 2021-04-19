@@ -1,0 +1,135 @@
+<joblist>
+  <job>
+    <context>
+      <options preserveOrder='true'>
+        <option name='hostname' required='true'>
+          <description>Enter comma separated hostnames</description>
+          <label>Hostname</label>
+        </option>
+        <option enforcedvalues='true' name='server_env' required='true' values='dev,prod' valuesListDelimiter=','>
+          <description>Select server DC environment.</description>
+          <label>ServerEnv</label>
+        </option>
+        <option name='server_loc' required='true'>
+          <description>Provide ISO Country code in uppercase.</description>
+          <label>ServerLoc</label>
+        </option>
+        <option name='repo_id' required='true'>
+          <description>Provide OS release number (e.g. 8.20210304)</description>
+          <label>Repo ID</label>
+        </option>
+        <option enforcedvalues='true' name='role' required='true' values='none,elk,sabrestore_hdp,vx_jenkins,k8s_rancher,tradelake,sidr_server,test_server,control-m' valuesListDelimiter=','>
+          <description>Select application role.</description>
+          <label>App Role</label>
+        </option>
+        <option enforcedvalues='true' name='subrole' value='none' values='none,master,slave,worker' valuesListDelimiter=','>
+          <description><![CDATA[Select only if role is vx_jenkins or k8s_rancher.
+k8s_rancher subroles: master, worker
+vx_jenkins subroles: master, slave]]></description>
+          <label>App Sub-Role</label>
+        </option>
+        <option name='jira_id' required='true'>
+          <description>Enter JIRA ID</description>
+          <label>JIRA ID</label>
+        </option>
+        <option name='assigned_to' required='true'>
+          <description>Enter the App support team.</description>
+          <label>App Team Name</label>
+        </option>
+        <option name='assigned_email' required='true'>
+          <description>Enter App team's email DL.</description>
+          <label>App Team Email DL</label>
+        </option>
+        <option name='skip_tags'>
+          <description>Provide comma separated ansible tags to skip.</description>
+          <label>Skip Tags</label>
+        </option>
+      </options>
+    </context>
+    <defaultTab>nodes</defaultTab>
+    <description></description>
+    <executionEnabled>true</executionEnabled>
+    <id>741bfe4d-4502-443d-93db-04162da4d674</id>
+    <loglevel>INFO</loglevel>
+    <name>OS_Customization</name>
+    <nodeFilterEditable>false</nodeFilterEditable>
+    <notification>
+      <onsuccess>
+        <email attachLog='true' attachLogInFile='true' recipients='monet.velasco@gmail.com' />
+      </onsuccess>
+    </notification>
+    <notifyAvgDurationThreshold />
+    <plugins />
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <description>Generate inventory</description>
+        <script><![CDATA[#!/bin/bash
+
+WORKDIR=/rd_workdir
+echo "Generating inventory file"
+echo "@option.hostname@" | sed 's/,/\n/g' > ${WORKDIR}/hosts]]></script>
+        <scriptargs />
+      </command>
+      <command>
+        <description>Download basebuild roles</description>
+        <script><![CDATA[#!/bin/bash
+
+WORKDIR=/rd_workdir
+ROLESDIR=${WORKDIR}/roles
+REQFILE=basebuild_requirements.yml
+REQURL=https://raw.githubusercontent.com/monet005/scripts/master/${REQFILE}
+
+[ -d $WORKDIR ] || mkdir -p $WORKDIR
+[ -d $ROLESDIR ] || mkdir -p $ROLESDIR
+[ ! -f ${WORKDIR}/${REQFILE} ] || rm -f ${WORKDIR}/${REQFILE}
+
+curl $REQURL -o ${WORKDIR}/${REQFILE} \
+&& echo "Downloaded latest requirement files"
+
+ansible-galaxy install \
+--force \
+--ignore-certs \
+--roles-path \
+$ROLESDIR \
+-r ${WORKDIR}/${REQFILE} \
+&& echo "Ansible roles installed"]]></script>
+        <scriptargs />
+      </command>
+      <command>
+        <description>Download basebuild playbook</description>
+        <script><![CDATA[#!/bin/bash
+
+WORKDIR=/rd_workdir
+PLAYBOOK=rundeck-basebuild.yml
+REQURL=https://raw.githubusercontent.com/monet005/scripts/master/${PLAYBOOK}
+
+[ -d $WORKDIR ] || mkdir -p $WORKDIR
+[ ! -f ${WORKDIR}/${PLAYBOOK} ] || rm -f ${WORKDIR}/${PLAYBOOK}
+
+curl $REQURL -o ${WORKDIR}/${PLAYBOOK} \
+&& echo "Downloaded $PLAYBOOK playbook"]]></script>
+        <scriptargs />
+      </command>
+      <command>
+        <description>Run OS customization playbooks</description>
+        <step-plugin type='com.batix.rundeck.plugins.AnsiblePlaybookWorkflowStep'>
+          <configuration>
+            <entry key='ansible-become' value='true' />
+            <entry key='ansible-become-method' value='sudo' />
+            <entry key='ansible-disable-limit' value='true' />
+            <entry key='ansible-extra-param' value='--ssh-extra-args=&apos;-o StrictHostKeyChecking=no&apos; --inventory-file=/rd_workdir/hosts -e &apos;host_key_checking=False&apos; --skip-tags=${option.skip_tags}' />
+            <entry key='ansible-extra-vars' value='ServerEnv: ${option.server_env}&#10;ServerLoc: ${option.server_loc}&#10;REPOID: ${option.repo_id}&#10;role: ${option.role}&#10;subrole: ${option.subrole}&#10;jira_id: ${option.jira_id}&#10;assigned_to: ${option.assigned_to}&#10;assigned_email: ${option.assigned_email}' />
+            <entry key='ansible-playbook' value='/rd_workdir/rundeck-basebuild.yml' />
+            <entry key='ansible-ssh-auth-type' value='privateKey' />
+            <entry key='ansible-ssh-key-storage-path' value='keys/admin/raemone.pem' />
+            <entry key='ansible-ssh-passphrase-option' value='option.password' />
+            <entry key='ansible-ssh-use-agent' value='false' />
+            <entry key='ansible-ssh-user' value='raemone' />
+          </configuration>
+        </step-plugin>
+      </command>
+    </sequence>
+    <uuid>741bfe4d-4502-443d-93db-04162da4d674</uuid>
+  </job>
+</joblist>
